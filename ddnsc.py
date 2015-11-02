@@ -7,53 +7,47 @@ import re
 import smtplib
 import urllib
 import urllib2
-import MySQLdb
 
 from collections import defaultdict
 
+from model import engine, Record
 
-"""
-  Right now the only options for variables in the url are:
 
-    {domain}
-    {subdomain}
-    {ip}
-    {extras}
+from sqlalchemy.orm import sessionmaker
+Session = sessionmaker(bind=engine)
+session = Session()
 
-  More will come in the future.
-"""
+
+# Setup the log levels.
+class Level:
+  OFF = 0
+  LOW = 1
+  MID = 2
+  HIGH = 3
+
+logLevel = 0
+
 
 
 def setupUrl(theRows, theIp):
   """Function to setup the url based on the rows passed in."""
 
-  aDict = {} 
-
-  # Loop through each row.
   for aRow in theRows:
-
-    aDict["subdomain"] = aRow[1]
-    aDict["domain"] = aRow[2]
-    aDict["username"] = aRow[3]
-    aDict["password"] = aRow[4]
-    aDict["ip"] = aRow[5]
-    aDict["api"] = aRow[7]
-
     # Only update if the current ip is different from the stored one.
-    if aDict["ip"] != theIp:
+    if aRow.ip != theIp:
 
-      aDict["ip"] = theIp
+      aRow.ip = theIp
 
       # Format the url properly.
-      aUrl = aDict["api"].format(**aDict)
+      aUrl = aRow.api.format(**aRow.__dict__)
 
-      print("Setup url as: ", aUrl)
+      print "Setup url as:\n\t" + aUrl
 
       # Update the ip with the url.
-      aPage = updateIp(aUrl, aDict["username"], aDict["password"])
+      aPage = updateIp(aUrl, aRow.username, aRow.password)
 
       # Do something with the response.
-      manageResponse(aPage, aDict)
+      manageResponse(aPage, aRow)
 
 
 def updateIp(theUrl, theUser, thePass):
@@ -76,13 +70,13 @@ def updateIp(theUrl, theUser, thePass):
 
   resp = response.read()
 
-  print("Got the response of " + resp)
+  print("\tresponse: " + resp)
 
   # Read the page.
   return resp
 
 
-def manageResponse(theResp, theDict):
+def manageResponse(theResp, theRow):
   """Manage the response we got from the dns provider."""
 
   good = ["good", "nochg"]
@@ -90,26 +84,12 @@ def manageResponse(theResp, theDict):
 
   # Do stuff with the results.
   if any(s in theResp for s in good):
-    # Make a cursor.
-    c = _myConn.cursor()
-
     # Select all the data.
-    data = (theDict["ip"], theResp, theDict["username"], theDict["password"],)
-    result = c.execute(
-      """
-          UPDATE ddns__credentials
-          SET ip = %s, response = %s
-          WHERE username = %s AND password = %s
-      """,
-      data
-    )
+    theRow.response = theResp
 
-    # # Commit the data.
-    _myConn.commit()
-
-    print("We are good.")
-
-    print(theResp)
+    # Commit the data.
+    session.add(theRow)
+    session.commit()
   elif theResp in bad:
     # Email the error and exit.
     # Create the message.
@@ -143,53 +123,47 @@ def findIp():
   return re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}.\d{1,3}", request)[0]
 
 
-
-
-# Open db connection.
-
-# Query.
-
-# Loop through each result.
-
-  # Curl on setup.
-
-  # Send an email if config'd.
-
-  # Log response
-
-# Close database.
-
-
-
-
-
-
+def _setLogLevel(theNum):
+  global logLevel
+  logLevel = theNum
 
 
 if __name__ == '__main__':
-  # Create a new object.
-  #ddncs = DDNSClient()
+  # Setup the argument parser.
+  import argparse
 
-  # Get the current ip address.
-  currentip = findIp()
+  aParser = argparse.ArgumentParser(description="DDNSc")
+  aParser.add_argument("-v", "--verbose", action="count")
+  aCommand = aParser.add_mutually_exclusive_group(required=False)
+  aCommand.add_argument("-a", "--add", nargs="*")
+  aCommand.add_argument("-u", "--update", action="store_true")
+  aCommand.add_argument("-l", "--look", nargs="?", const="all")
+  
+  aArgs = aParser.parse_args()
 
-  print("ii Found ip is " + currentip)
+  _setLogLevel(aArgs.verbose)
+  print "ii Log level is " + str(logLevel)
 
-  # Make a cursor.
-  c = _myConn.cursor()
+  if logLevel >= Level.HIGH:
+    print aArgs
 
-  # Select all the data.
-  c.execute("""
-    SELECT *
-    FROM ddns__credentials;
-  """)
+  if aArgs.update:
+    # Get the current ip address.
+    currentip = findIp()
 
-  # Get all the data.
-#  for row in c.fetchall():
-#    if currentip != row[3]:
-#      updateIp(currentip, row[0], row[1], row[2], row[3])
+    print("ii Found ip is " + currentip)
 
-  setupUrl(c.fetchall(), currentip)
+    setupUrl(session.query(Record).all(), currentip)
+  elif aArgs.add:
+    #aAddition = new Record(
+    pass
+  elif aArgs.look:
+    if aArgs.look == "all":
+      for aRecord in session.query(Record).all():
+        print aRecord.__dict__
+    else:
+      print aArgs.look
+  else:
+    aParser.print_help()
 
-  # Close the database.
-  _myConn.close()
+
