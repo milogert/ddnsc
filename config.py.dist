@@ -1,0 +1,10 @@
+# Use this file to set some defaults for inserting records.
+# This is the default api you want to use.
+API="http://fancy.url"
+
+# Sets your default provider.
+PROVIDER = "Registrar" 
+
+# Sets your default domain.
+DOMAIN = "your-domain.com" 
+
