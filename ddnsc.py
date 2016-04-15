@@ -118,8 +118,7 @@ def manageResponse(theResp, theRow):
 
 def findIp():
     """Find the current ip of the server."""
-    request = urllib2.urlopen("https://api.ipify.org?format=json").read()
-    return re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}.\d{1,3}", request)[0]
+    return urllib2.urlopen('https://api.ipify.org').read()
 
 
 def addEntry(*theArgList):
@@ -151,6 +150,7 @@ if __name__ == '__main__':
     aCommand.add_argument("-a", "--add", nargs="*")
     aCommand.add_argument("-u", "--update", action="store_true")
     aCommand.add_argument("-l", "--look", nargs="?", const="all")
+    aCommand.add_argument('--test', action='store_true')
 
     aArgs = aParser.parse_args()
 
@@ -175,5 +175,7 @@ if __name__ == '__main__':
                 print aRecord.__dict__
         else:
             print aArgs.look
+    elif aArgs.test:
+        findIp()
     else:
         aParser.print_help()
