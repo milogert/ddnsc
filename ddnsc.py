@@ -1,4 +1,4 @@
-#!/bin/python2
+#!/usr/bin/env python
 
 import base64
 # from email.mime.text import MIMEText
@@ -37,7 +37,7 @@ def setupUrl(theRows, theIp):
         # Format the url properly.
         aUrl = aRow.api.format(**aRow.__dict__)
 
-        print "Setup url as:\n\t" + aUrl
+        print "Updating " + aRow.subdomain
 
         # Update the ip with the url.
         aPage = updateIp(aUrl, aRow.username, aRow.password)
@@ -118,8 +118,22 @@ def manageResponse(theResp, theRow):
 
 def findIp():
     """Find the current ip of the server."""
-    request = urllib2.urlopen("https://freegeoip.net/json/").read()
+    request = urllib2.urlopen("https://api.ipify.org?format=json").read()
     return re.findall(r"\d{1,3}\.\d{1,3}\.\d{1,3}.\d{1,3}", request)[0]
+
+
+def addEntry(*theArgList):
+    """Adds an entry to the database."""
+    print 'Adding entry:'
+    for aArg in theArgList:
+        print '\t' + aArg
+
+    # Create a new record.
+    new_r = Record(*theArgList)
+
+    # Add the record to the database and commit.
+    session.add(new_r)
+    session.commit()
 
 
 def _setLogLevel(theNum):
@@ -154,12 +168,7 @@ if __name__ == '__main__':
 
         setupUrl(session.query(Record).all(), currentip)
     elif aArgs.add:
-        # Create a new record.
-        new_r = Record(*aArgs.add)
-
-        # Add the record to the database and commit.
-        session.add(new_r)
-        session.commit()
+        addEntry(*aArgs.add)
     elif aArgs.look:
         if aArgs.look == "all":
             for aRecord in session.query(Record).all():
