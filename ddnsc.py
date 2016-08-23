@@ -4,7 +4,9 @@ import base64
 # from email.mime.text import MIMEText
 import re
 # import smtplib
-import urllib2
+
+import requests
+from requests.auth import HTTPBasicAuth
 
 from model import engine, Record
 
@@ -37,7 +39,7 @@ def setupUrl(theRows, theIp):
         # Format the url properly.
         aUrl = aRow.api.format(**aRow.__dict__)
 
-        print "Updating " + aRow.subdomain
+        print("Updating " + aRow.subdomain)
 
         # Update the ip with the url.
         aPage = updateIp(aUrl, aRow.username, aRow.password)
@@ -47,32 +49,22 @@ def setupUrl(theRows, theIp):
 
 
 def updateIp(theUrl, theUser, thePass):
-    """Update the ip."""
-
-    # Setup the request header.
-    request = urllib2.Request(theUrl)
-
-    # User agent.
-    userAgent = "Python-urllib/2.6"
-    request.add_header("User-Agent", userAgent)
+    'Update the ip.'
 
     # Username and password, if present.
-    if theUser == "" or thePass == "":
+    if theUser == '' or thePass == '':
         return
 
-    encode_str = '%s:%s' % (theUser, thePass)
-    base64string = base64.encodestring(encode_str).replace('\n', '')
-    request.add_header("Authorization", "Basic %s" % base64string)
+    # Setup the request header.
+    aHeaders = { 'User-Agent': 'Python-requests/3.5' }
 
-    # Make the request.
-    response = urllib2.urlopen(request)
+    # Call the url.
+    request = requests.get(theUrl, headers=aHeaders, auth=HTTPBasicAuth(theUser, thePass))
 
-    resp = response.read()
-
-    print("\tresponse: " + resp)
+    print("\tresponse: " + request.text)
 
     # Read the page.
-    return resp
+    return request.text
 
 
 def manageResponse(theResp, theRow):
@@ -117,15 +109,16 @@ def manageResponse(theResp, theRow):
 
 
 def findIp():
-    """Find the current ip of the server."""
-    return urllib2.urlopen('https://api.ipify.org').read()
+    'Find the current ip of the server.'
+    return requests.get('https://api.ipify.org').text
 
 
 def addEntry(*theArgList):
-    """Adds an entry to the database."""
-    print 'Adding entry:'
+    'Adds an entry to the database.'
+
+    print('Adding entry:')
     for aArg in theArgList:
-        print '\t' + aArg
+        print('\t' + aArg)
 
     # Create a new record.
     new_r = Record(*theArgList)
@@ -136,6 +129,8 @@ def addEntry(*theArgList):
 
 
 def _setLogLevel(theNum):
+    if not theNum:
+        theNum = 0
     global logLevel
     logLevel = theNum
 
@@ -155,10 +150,10 @@ if __name__ == '__main__':
     aArgs = aParser.parse_args()
 
     _setLogLevel(aArgs.verbose)
-    print "ii Log level is " + str(logLevel)
+    print('ii Log level is ' + str(logLevel))
 
     if logLevel >= Level.HIGH:
-        print aArgs
+        print(aArgs)
 
     if aArgs.update:
         # Get the current ip address.
@@ -172,10 +167,11 @@ if __name__ == '__main__':
     elif aArgs.look:
         if aArgs.look == "all":
             for aRecord in session.query(Record).all():
-                print aRecord.__dict__
+                print(aRecord.__dict__)
         else:
-            print aArgs.look
+            print(aArgs.look)
     elif aArgs.test:
         findIp()
     else:
         aParser.print_help()
+
